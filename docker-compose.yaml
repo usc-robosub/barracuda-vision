@@ -10,6 +10,7 @@ services:
     volumes:
       - $HOME/.ssh:/root/.ssh
       - $XAUTHORITY:/root/.Xauthority:ro
+      - $CUDA_HOME:/usr/local/cuda:ro
     environment:
       - DISPLAY
     deploy:
