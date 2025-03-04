@@ -1,1 +1,2 @@
 inference-sdk
+numpy>=1.20
