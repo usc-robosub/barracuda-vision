@@ -35,7 +35,7 @@ def callback(data):
 
 def listener():
     rospy.init_node('barracuda_vision_listener', anonymous=True)
-    rospy.Subscriber("input_topic", Image, callback)
+    rospy.Subscriber("yolo_input_image", Image, callback)
     global object_detector, bounding_boxes, detection_image
     object_detector = rospy.Publisher('object_detector', Int8, queue_size=10)
     bounding_boxes = rospy.Publisher('bounding_boxes', BoundingBoxes, queue_size=10)
