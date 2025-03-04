@@ -1,14 +1,5 @@
 <launch>
 
-    <!-- Use YOLOv3 -->
-    <arg name="network_param_file"  default="$(find darknet_ros)/config/yolov3.yaml"/>
-    <arg name="image" value="camera/color/image_raw"/>
-
-
-    <!-- Include main launch file -->
-    <include file="$(find darknet_ros)/launch/darknet_ros.launch">
-        <arg name="ros_param_file" value="$(find barracuda_vision)/params/ros.yaml"/>
-        <arg name="network_param_file"    value="$(arg network_param_file)"/>
-        <arg name="image" value="$(arg image)" />
-    </include>
+    <!-- Launch test.py script -->
+    <node name="barracuda_vision_listener" pkg="barracuda_vision" type="test.py" output="screen"/>
 </launch>
