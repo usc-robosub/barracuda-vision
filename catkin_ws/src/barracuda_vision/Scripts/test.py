@@ -2,7 +2,7 @@
 import rospy
 from sensor_msgs.msg import Image
 from std_msgs.msg import Int8
-from darknet_ros_msgs.msg import bounding_boxes
+from darknet_ros_msgs.msg import BoundingBoxes
 from inference_sdk import InferenceHTTPClient
 
 client = InferenceHTTPClient(
@@ -38,7 +38,7 @@ def listener():
     rospy.Subscriber("input_topic", Image, callback)
     global object_detector, bounding_boxes, detection_image
     object_detector = rospy.Publisher('object_detector', Int8, queue_size=10)
-    bounding_boxes = rospy.Publisher('bounding_boxes', bounding_boxes, queue_size=10)
+    bounding_boxes = rospy.Publisher('bounding_boxes', BoundingBoxes, queue_size=10)
     detection_image = rospy.Publisher('detection_image', Image, queue_size=10)
     rospy.spin()
 
