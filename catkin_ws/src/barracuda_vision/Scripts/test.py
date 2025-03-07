@@ -39,22 +39,22 @@ def callback(data):
     detectionImage.encoding = "bgr8"
     detectionImage.height = result[0]["model1_predictions"]['image']['height']
     detectionImage.width = result[0]["model1_predictions"]['image']['width']
-    detectionImage.step = detection_image.width * 3
+    detectionImage.step = data.step
     detectionImage.data = result[0]["model_comparison_visualization"].tobytes()
 
     
     # Publish the result
-    object_detector.publish(len(result[0]["model1_predictions"]['predictions']))
-    bounding_boxes.publish(boundingBoxes)
-    detection_image.publish(detectionImage)
+    pub_object_detector.publish(len(result[0]["model1_predictions"]['predictions']))
+    pub_bounding_boxes.publish(boundingBoxes)
+    pub_detection_image.publish(detectionImage)
 
 def listener():
     rospy.init_node('barracuda_vision_listener', anonymous=True)
     rospy.Subscriber("yolo_input_image", Image, callback)
-    global object_detector, bounding_boxes, detection_image
-    object_detector = rospy.Publisher('object_detector', Int8, queue_size=10)
-    bounding_boxes = rospy.Publisher('bounding_boxes', BoundingBoxes, queue_size=10)
-    detection_image = rospy.Publisher('detection_image', Image, queue_size=10)
+    global pub_object_detector, pub_bounding_boxes, pub_detection_image
+    pub_object_detector = rospy.Publisher('object_detector', Int8, queue_size=10)
+    pub_bounding_boxes = rospy.Publisher('bounding_boxes', BoundingBoxes, queue_size=10)
+    pub_detection_image = rospy.Publisher('detection_image', Image, queue_size=10)
     rospy.spin()
 
 if __name__ == '__main__':
