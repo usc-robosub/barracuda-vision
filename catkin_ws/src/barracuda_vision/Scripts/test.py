@@ -41,6 +41,8 @@ def callback(data):
     detectionImage.height = result[0]["model1_predictions"]['image']['height']
     detectionImage.width = result[0]["model1_predictions"]['image']['width']
     detectionImage.step = data.step
+
+    print(type(result[0]["model_comparison_visualization"]))  
     detectionImage.data = b64encode(result[0]["model_comparison_visualization"]).decode('utf-8')
 
     
