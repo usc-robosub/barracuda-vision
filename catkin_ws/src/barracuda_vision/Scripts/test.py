@@ -23,17 +23,30 @@ def callback(data):
             "image": image
         },
         parameters={
-            "model1": "yolov8n-640",
-            "model2": "yolov11n-640"
+            "model1": "yolov11n-640"
         }
     )
     # Print the result
     print(result)
     
+    boundingBoxes = BoundingBoxes()
+    boundingBoxes.header = data.header
+    boundingBoxes.image_header = data.header
+
+    detectionImage = Image()
+    detectionImage.header = data.header
+    detectionImage.header = data.header
+    detectionImage.encoding = "bgr8"
+    detectionImage.height = result[0]["model1_predictions"]['image']['height']
+    detectionImage.width = result[0]["model1_predictions"]['image']['width']
+    detectionImage.step = detection_image.width * 3
+    detectionImage.data = result[0]["model_comparison_visualization"].tobytes()
+
+    
     # Publish the result
-    object_detector.publish(result[0]["object_detector"])
-    bounding_boxes.publish(result[0]["bounding_boxes"])
-    detection_image.publish(result[0]["detection_image"])
+    object_detector.publish(len(result[0]["model1_predictions"]['predictions']))
+    bounding_boxes.publish(boundingBoxes)
+    detection_image.publish(detectionImage)
 
 def listener():
     rospy.init_node('barracuda_vision_listener', anonymous=True)
