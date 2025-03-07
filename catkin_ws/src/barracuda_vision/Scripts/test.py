@@ -5,6 +5,7 @@ from std_msgs.msg import Int8
 from darknet_ros_msgs.msg import BoundingBoxes
 from inference_sdk import InferenceHTTPClient
 from cv_bridge import CvBridge
+from base64 import b64encode
 
 client = InferenceHTTPClient(
     api_url="http://localhost:9001", # use local inference server
@@ -40,7 +41,7 @@ def callback(data):
     detectionImage.height = result[0]["model1_predictions"]['image']['height']
     detectionImage.width = result[0]["model1_predictions"]['image']['width']
     detectionImage.step = data.step
-    detectionImage.data = result[0]["model_comparison_visualization"].tobytes()
+    detectionImage.data = b64encode(result[0]["model_comparison_visualization"]).decode('utf-8')
 
     
     # Publish the result
