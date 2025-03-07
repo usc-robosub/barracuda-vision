@@ -12,7 +12,7 @@ def publish_image():
 
     while not rospy.is_shutdown():
         # Read an image using OpenCV
-        cv_image = cv2.imread('../images/cat.jpg')
+        cv_image = cv2.imread('../images/cat.png')
         if cv_image is None:
             rospy.logerr("Failed to read image")
             continue
@@ -21,11 +21,14 @@ def publish_image():
         ros_image = bridge.cv2_to_imgmsg(cv_image, encoding="bgr8")
 
         # Publish the image
+        print("Publishing image")
         pub.publish(ros_image)
         rate.sleep()
 
 if __name__ == '__main__':
     try:
+        print("Publishing image main")
         publish_image()
     except rospy.ROSInterruptException:
+        print("An error occurred.")
         pass
