@@ -10,6 +10,7 @@ RUN sudo apt-get update \
     ros-noetic-darknet-ros-msgs \
     ros-noetic-image-transport \
     ros-noetic-nodelet \
+    ros-noetic-image-pipeline \
     ros-noetic-actionlib \
     python3-opencv \
     && rm -rf /var/lib/apt/lists/*
