@@ -31,9 +31,9 @@ def callback(data):
     print(result)
     
     # Publish the result
-    object_detector.publish(result["object_detector"])
-    bounding_boxes.publish(result["bounding_boxes"])
-    detection_image.publish(result["detection_image"])
+    object_detector.publish(result[0]["object_detector"])
+    bounding_boxes.publish(result[0]["bounding_boxes"])
+    detection_image.publish(result[0]["detection_image"])
 
 def listener():
     rospy.init_node('barracuda_vision_listener', anonymous=True)
