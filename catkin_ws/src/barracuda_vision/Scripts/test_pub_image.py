@@ -5,7 +5,7 @@ from cv_bridge import CvBridge
 import cv2
 
 def publish_image():
-    rospy.init_node('image_publisher', anonymous=True)
+    rospy.init_node('image_test_publisher', anonymous=True)
     pub = rospy.Publisher('yolo_input_image', Image, queue_size=10)
     rate = rospy.Rate(10) # 10hz
     bridge = CvBridge()

@@ -5,6 +5,8 @@ from std_msgs.msg import Int8
 from darknet_ros_msgs.msg import BoundingBoxes
 from inference_sdk import InferenceHTTPClient
 from cv_bridge import CvBridge
+import supervision as sv
+
 # from base64 import b64encode
 import base64
 
@@ -17,7 +19,8 @@ def callback(data):
     rospy.loginfo(rospy.get_caller_id() + " I heard an image")
     # Process the data and publish the result
     # Assuming data contains the image data
-    image = CvBridge().imgmsg_to_cv2(data, "bgr8")
+    cvBridge = CvBridge()
+    image = cvBridge.imgmsg_to_cv2(data, "bgr8")
     result = client.run_workflow(
         workspace_name="roboflow-docs",
         workflow_id="model-comparison",
@@ -29,11 +32,18 @@ def callback(data):
         }
     )
     # Print the result
-    print(result)
+    # print(result)
     
     boundingBoxes = BoundingBoxes()
     boundingBoxes.header = data.header
     boundingBoxes.image_header = data.header
+
+    detections = sv.Detections.from_inference(result[0]["model1_predictions"])
+    box_annotator = sv.BoxAnnotator()
+    annotated_frame = box_annotator.annotate(
+        scene=image.copy(),
+        detections=detections
+    )
 
     detectionImage = Image()
     detectionImage.header = data.header
@@ -43,8 +53,10 @@ def callback(data):
     detectionImage.width = result[0]["model1_predictions"]['image']['width']
     detectionImage.step = data.step
 
-    print(type(result[0]["model_comparison_visualization"]))  
-    detectionImage.data = base64.b64decode(result[0]["model_comparison_visualization"])
+    detectionImage = cvBridge.cv2_to_imgmsg(annotated_frame, encoding="bgr8")
+    
+    # print(type(result[0]["model_comparison_visualization"]))  
+    # detectionImage.data = base64.b64decode(result[0]["model_comparison_visualization"])
     # detectionImage.data = result[0]["model_comparison_visualization"].encode('utf-8')
 
     
@@ -54,7 +66,7 @@ def callback(data):
     pub_detection_image.publish(detectionImage)
 
 def listener():
-    rospy.init_node('barracuda_vision_listener', anonymous=True)
+    rospy.init_node('yolo_image_listener', anonymous=True)
     rospy.Subscriber("yolo_input_image", Image, callback)
     global pub_object_detector, pub_bounding_boxes, pub_detection_image
     pub_object_detector = rospy.Publisher('object_detector', Int8, queue_size=10)
