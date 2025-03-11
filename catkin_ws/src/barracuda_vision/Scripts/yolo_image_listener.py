@@ -32,7 +32,7 @@ def callback(data):
         }
     )
     # Print the result
-    # print(result)
+    print(result[0]["model1_predictions"]["predictions"])
     
     predictions = result[0]["model1_predictions"]["predictions"]
     detections = sv.Detections.from_inference(result[0]["model1_predictions"])
