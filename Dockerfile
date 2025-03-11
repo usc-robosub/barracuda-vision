@@ -18,7 +18,6 @@ RUN sudo apt-get update \
 COPY requirements.txt .
 RUN sudo pip install --no-cache-dir -r requirements.txt
 
-
 COPY . /opt/barracuda-vision
 WORKDIR /opt
 # Source the workspace on container start

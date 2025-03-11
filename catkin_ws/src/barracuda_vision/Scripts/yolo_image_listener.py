@@ -76,7 +76,6 @@ def callback(data):
     # print(type(result[0]["model_comparison_visualization"]))  
     # detectionImage.data = base64.b64decode(result[0]["model_comparison_visualization"])
     # detectionImage.data = result[0]["model_comparison_visualization"].encode('utf-8')
-
     
     # Publish the result
     pub_object_detector.publish(len(result[0]["model1_predictions"]['predictions']))
