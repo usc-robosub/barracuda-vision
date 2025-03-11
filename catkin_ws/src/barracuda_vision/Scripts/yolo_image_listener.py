@@ -2,7 +2,7 @@
 import rospy
 from sensor_msgs.msg import Image
 from std_msgs.msg import Int8
-from darknet_ros_msgs.msg import BoundingBoxes
+from darknet_ros_msgs.msg import BoundingBoxes, BoundingBox
 from inference_sdk import InferenceHTTPClient
 from cv_bridge import CvBridge
 import supervision as sv
@@ -37,6 +37,16 @@ def callback(data):
     boundingBoxes = BoundingBoxes()
     boundingBoxes.header = data.header
     boundingBoxes.image_header = data.header
+    boundingBoxes.bounding_boxes = []
+    for prediction in result[0]["model1_predictions"]['predictions']:
+        boundingBox = BoundingBox()
+        boundingBox.xmin = prediction['xmin']
+        boundingBox.ymin = prediction['ymin']
+        boundingBox.xmax = prediction['xmax']
+        boundingBox.ymax = prediction['ymax']
+        boundingBox.probability = prediction['confidence']
+        boundingBox.Class = prediction['label']
+        boundingBoxes.bounding_boxes.append(boundingBox)
 
     detections = sv.Detections.from_inference(result[0]["model1_predictions"])
     box_annotator = sv.BoxAnnotator()
