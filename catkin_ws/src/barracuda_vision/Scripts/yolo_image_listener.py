@@ -34,21 +34,22 @@ def callback(data):
     # Print the result
     # print(result)
     
+    detections = sv.Detections.from_inference(result[0]["model1_predictions"])
+
     boundingBoxes = BoundingBoxes()
     boundingBoxes.header = data.header
     boundingBoxes.image_header = data.header
     boundingBoxes.bounding_boxes = []
-    for prediction in result[0]["model1_predictions"]['predictions']:
+    for d in detections:
         boundingBox = BoundingBox()
-        boundingBox.xmin = prediction['xmin']
-        boundingBox.ymin = prediction['ymin']
-        boundingBox.xmax = prediction['xmax']
-        boundingBox.ymax = prediction['ymax']
-        boundingBox.probability = prediction['confidence']
-        boundingBox.Class = prediction['label']
+        boundingBox.xmin = d.xyxy[0]
+        boundingBox.ymin = d.xyxy[1]
+        boundingBox.xmax = d.xyxy[2]
+        boundingBox.ymax = d.xyxy[3]
+        boundingBox.probability = d.confidence
+        boundingBox.Class = d.class_id
         boundingBoxes.bounding_boxes.append(boundingBox)
 
-    detections = sv.Detections.from_inference(result[0]["model1_predictions"])
     box_annotator = sv.BoxAnnotator()
     annotated_frame = box_annotator.annotate(
         scene=image.copy(),
