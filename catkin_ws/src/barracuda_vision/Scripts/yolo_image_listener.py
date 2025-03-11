@@ -35,7 +35,7 @@ def callback(data):
     # print(result)
     
     detections = sv.Detections.from_inference(result[0]["model1_predictions"])
-    xyxy = int(detections.xyxy)
+    xyxy = detections.xyxy
     print(xyxy)
     confidence = detections.confidence
     class_id = detections.class_id
@@ -47,10 +47,10 @@ def callback(data):
 
     for i in range(len(detections)):
         boundingBox = BoundingBox()
-        boundingBox.xmin = xyxy[i][0]
-        boundingBox.ymin = xyxy[i][1]
-        boundingBox.xmax = xyxy[i][2]
-        boundingBox.ymax = xyxy[i][3]
+        boundingBox.xmin = int(xyxy[i][0])
+        boundingBox.ymin = int(xyxy[i][1])
+        boundingBox.xmax = int(xyxy[i][2])
+        boundingBox.ymax = int(xyxy[i][3])
         boundingBox.probability = confidence[i]
         boundingBox.Class = class_id[i]
         boundingBoxes.bounding_boxes.append(boundingBox)
