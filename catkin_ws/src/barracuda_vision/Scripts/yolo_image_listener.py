@@ -36,6 +36,7 @@ def callback(data):
     
     detections = sv.Detections.from_inference(result[0]["model1_predictions"])
     xyxy = detections.xyxy
+    print(xyxy)
     confidence = detections.confidence
     class_id = detections.class_id
 
