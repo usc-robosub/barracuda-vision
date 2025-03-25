@@ -13,11 +13,3 @@ services:
     environment:
       - DISPLAY
       - XAUTHORITY=${XAUTHORITY:-/tmp/.Xauthority}
-      - CUDA_HOME=${CUDA_HOME:-/usr/local/cuda}
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
