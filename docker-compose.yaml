@@ -1,0 +1,15 @@
+services:
+  barracuda-vision:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: barracuda-vision
+    privileged: true
+    tty: true
+    network_mode: host
+    volumes:
+      - $HOME/.ssh:/root/.ssh
+      - ${XAUTHORITY:-/tmp/.Xauthority}:/root/.Xauthority:ro
+    environment:
+      - DISPLAY
+      - XAUTHORITY=${XAUTHORITY:-/tmp/.Xauthority}
