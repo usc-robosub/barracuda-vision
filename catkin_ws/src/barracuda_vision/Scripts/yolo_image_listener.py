@@ -6,6 +6,8 @@ from darknet_ros_msgs.msg import BoundingBoxes, BoundingBox
 from inference_sdk import InferenceHTTPClient
 from cv_bridge import CvBridge
 import supervision as sv
+import torch 
+from torchvision import transforms
 
 # from base64 import b64encode
 import base64
@@ -15,11 +17,10 @@ client = InferenceHTTPClient(
     # api_key="<YOUR API KEY>" # optional to access your private data and models
 )
 
-def callback(data):
+def infer_with_roboflow(data):
     rospy.loginfo(rospy.get_caller_id() + " I heard an image")
     # Process the data and publish the result
     # Assuming data contains the image data
-    cvBridge = CvBridge()
     image = cvBridge.imgmsg_to_cv2(data, "bgr8")
     result = client.run_workflow(
         workspace_name="roboflow-docs",
@@ -33,7 +34,10 @@ def callback(data):
     )
     # Print the result
     print(result[0]["model1_predictions"]["predictions"])
+
+    process_result(data, image, result)
     
+def process_result(data, image, result):
     predictions = result[0]["model1_predictions"]["predictions"]
     detections = sv.Detections.from_inference(result[0]["model1_predictions"])
     xyxy = detections.xyxy
@@ -82,9 +86,19 @@ def callback(data):
     pub_bounding_boxes.publish(boundingBoxes)
     pub_detection_image.publish(detectionImage)
 
+def infer_with_local_model(data):
+    # Define preprocessing (adjust to your model)
+    image = cvBridge.imgmsg_to_cv2(data, "bgr8")
+    tensor = preprocess(image).unsqueeze(0)  # add batch dimension
+    with torch.no_grad():
+        outputs = model(tensor)
+    predicted = outputs.argmax(dim=1).item()
+    
+    process_result(data, image, predicted)
+
 def listener():
     rospy.init_node('yolo_image_listener', anonymous=True)
-    rospy.Subscriber("yolo_input_image", Image, callback)
+    rospy.Subscriber("yolo_input_image", Image, infer_with_local_model)
     global pub_object_detector, pub_bounding_boxes, pub_detection_image
     pub_object_detector = rospy.Publisher('object_detector', Int8, queue_size=10)
     pub_bounding_boxes = rospy.Publisher('bounding_boxes', BoundingBoxes, queue_size=10)
@@ -92,4 +106,16 @@ def listener():
     rospy.spin()
 
 if __name__ == '__main__':
+    model = torch.load('../localModels/yolo11n.pt')
+    model.eval()
+    # Define preprocessing (adjust to your model)
+    preprocess = transforms.Compose([
+        transforms.Resize((224, 224)),  # match your model's input size
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.5], std=[0.5]),  # update based on training
+    ])
+
+
+    cvBridge = CvBridge()
+
     listener()
