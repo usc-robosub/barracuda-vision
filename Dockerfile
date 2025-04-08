@@ -8,12 +8,13 @@ RUN sudo apt-get update \
     ros-noetic-cv-bridge \
     ros-noetic-darknet-ros-msgs \
     python3-opencv \
-    torch \
-    torchvision \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN sudo pip install --no-cache-dir -r requirements.txt
+
+COPY requirements_local.txt .
+RUN sudo pip install --no-cache-dir -r requirements_local.txt
 
 COPY . /opt/barracuda-vision
 WORKDIR /opt

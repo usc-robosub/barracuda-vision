@@ -1,7 +1,4 @@
 inference-sdk
 numpy>=1.20
-fastapi 
-uvicorn 
-pillow 
-ultralytics
-python-multipart
+torch
+torchvision
