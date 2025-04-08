@@ -8,6 +8,8 @@ RUN sudo apt-get update \
     ros-noetic-cv-bridge \
     ros-noetic-darknet-ros-msgs \
     python3-opencv \
+    torch \
+    torchvision \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

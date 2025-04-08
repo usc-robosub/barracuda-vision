@@ -2,7 +2,6 @@ inference-sdk
 numpy>=1.20
 fastapi 
 uvicorn 
-torch 
-torchvision 
 pillow 
+ultralytics
 python-multipart
