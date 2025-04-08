@@ -8,6 +8,7 @@ from cv_bridge import CvBridge
 import supervision as sv
 import torch 
 from torchvision import transforms
+import os
 
 # from base64 import b64encode
 import base64
@@ -106,7 +107,9 @@ def listener():
     rospy.spin()
 
 if __name__ == '__main__':
-    model = torch.load('../localModels/yolo11n.pt')
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    model_path = os.path.join(script_dir, '..', 'localModels', 'yolo11n.pt')
+    model = torch.load(model_path)
     model.eval()
     # Define preprocessing (adjust to your model)
     preprocess = transforms.Compose([
