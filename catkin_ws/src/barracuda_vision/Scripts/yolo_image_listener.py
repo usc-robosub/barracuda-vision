@@ -117,9 +117,10 @@ def listener():
 
 if __name__ == '__main__':
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    # model_path = os.path.join(script_dir, '..', 'localModels', 'yolo11n.pt')
-    model_path = os.path.join(script_dir, '..', 'localModels')
-    model = torch.hub.load(model_path, 'yolov11n', pretrained=True)
+    model_path = os.path.join(script_dir, '..', 'localModels', 'yolo11n.pt')
+    # model_path = os.path.join(script_dir, '..', 'localModels')
+    # model = torch.hub.load(model_path, 'yolov11n', pretrained=True)
+    model = torch.hub.load("Ultralytics/yolov11n","custom",f"{model_path}",trust_repo=True)
     # model = torch.load(model_path)
     model.eval()
     # Define preprocessing (adjust to your model)
