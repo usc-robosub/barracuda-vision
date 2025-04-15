@@ -106,9 +106,11 @@ def infer_with_local_model(data):
     with torch.no_grad():
         # outputs = model(tensor)
         outputs = model(image)
-    predicted = outputs.argmax(dim=1).item()
+    #output is list
+    print (outputs)
+    # predicted = outputs.argmax(dim=1).item()
     
-    process_result(data, image, predicted)
+    process_result(data, image, outputs)
 
 def listener():
     rospy.init_node('yolo_image_listener', anonymous=True)
