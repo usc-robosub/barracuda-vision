@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 from torchvision import transforms
 import os
+from ultralytics import YOLO
 
 # from base64 import b64encode
 import base64
@@ -120,8 +121,14 @@ if __name__ == '__main__':
     model_path = os.path.join(script_dir, '..', 'localModels', 'yolo11n.pt')
     # model_path = os.path.join(script_dir, '..', 'localModels')
     # model = torch.hub.load(model_path, 'yolov11n', pretrained=True)
-    model = torch.hub.load("Ultralytics/yolov11n","custom",f"{model_path}",trust_repo=True)
+
+    ## this load custom model , but require internet 
+    # model = torch.hub.load("Ultralytics/yolov11n","custom",f"{model_path}",trust_repo=True)
+    
+    ## this does not work
     # model = torch.load(model_path)
+
+    model = YOLO(model_path)
     model.eval()
     # Define preprocessing (adjust to your model)
     preprocess = transforms.Compose([
