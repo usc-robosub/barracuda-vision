@@ -100,9 +100,12 @@ def process_result(data, image, result):
 def infer_with_local_model(data):
     # Define preprocessing (adjust to your model)
     image = cvBridge.imgmsg_to_cv2(data, "bgr8")
-    tensor = preprocess(image).unsqueeze(0)  # add batch dimension
+    pil_image = Image.fromarray(image)
+    # tensor = preprocess(pil_image)
+    # tensor = tensor.unsqueeze(0)  # add batch dimension
     with torch.no_grad():
-        outputs = model(tensor)
+        # outputs = model(tensor)
+        outputs = model(image)
     predicted = outputs.argmax(dim=1).item()
     
     process_result(data, image, predicted)
