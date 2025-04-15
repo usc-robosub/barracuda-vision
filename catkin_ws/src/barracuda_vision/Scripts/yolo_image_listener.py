@@ -7,6 +7,7 @@ from inference_sdk import InferenceHTTPClient
 from cv_bridge import CvBridge
 import supervision as sv
 import torch 
+import torch.nn as nn
 from torchvision import transforms
 import os
 
@@ -17,6 +18,14 @@ client = InferenceHTTPClient(
     api_url="http://localhost:9001", # use local inference server
     # api_key="<YOUR API KEY>" # optional to access your private data and models
 )
+
+# class MyModel(nn.Module):
+#     def __init__(self):
+#         super(MyModel, self).__init__()
+#         # Define layers here
+
+#     def forward(self, x):
+#         # Define forward pass here
 
 def infer_with_roboflow(data):
     rospy.loginfo(rospy.get_caller_id() + " I heard an image")
@@ -108,8 +117,10 @@ def listener():
 
 if __name__ == '__main__':
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.join(script_dir, '..', 'localModels', 'yolo11n.pt')
-    model = torch.load(model_path)
+    # model_path = os.path.join(script_dir, '..', 'localModels', 'yolo11n.pt')
+    model_path = os.path.join(script_dir, '..', 'localModels')
+    model = torch.hub.load(model_path, 'yolov11n', pretrained=True)
+    # model = torch.load(model_path)
     model.eval()
     # Define preprocessing (adjust to your model)
     preprocess = transforms.Compose([
