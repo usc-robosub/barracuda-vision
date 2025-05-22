@@ -98,7 +98,7 @@ def process_result(data, image, result):
     pub_detection_image.publish(detectionImage)
 
 def process_local_result(data, image, outputs):
-    detections = sv.Detections.from_yolov11(outputs)  # Updated to match YOLOv11
+    detections = sv.Detections.from_ultralytics(outputs)  # Updated to use from_ultralytics
     xyxy = detections.xyxy
     confidence = detections.confidence
     class_id = detections.class_id
@@ -147,13 +147,15 @@ def infer_with_local_model(data):
         # outputs = model(tensor)
         outputs = model(image)
     #output is list
-    print (outputs)
+    print ("model output", outputs)
+    print("model output type", type(outputs))
+    print("model output shape", outputs[0].shape)
 
     #TODO
     # Need to figure out how to get the output from the model
     # predicted = outputs.argmax(dim=1).item()
     
-    process_local_result(data, image, outputs)
+    process_local_result(data, image, outputs[0])
 
 def listener():
     rospy.init_node('yolo_image_listener', anonymous=True)
