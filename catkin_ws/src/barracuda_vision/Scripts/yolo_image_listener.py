@@ -149,7 +149,7 @@ def infer_with_local_model(data):
     #output is list
     print ("model output", outputs)
     print("model output type", type(outputs))
-    print("model output shape", outputs[0].shape)
+    # print("model output shape", outputs[0].shape)
 
     #TODO
     # Need to figure out how to get the output from the model
