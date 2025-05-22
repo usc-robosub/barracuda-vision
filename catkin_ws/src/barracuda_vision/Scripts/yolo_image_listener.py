@@ -97,6 +97,46 @@ def process_result(data, image, result):
     pub_bounding_boxes.publish(boundingBoxes)
     pub_detection_image.publish(detectionImage)
 
+def process_local_result(data, image, outputs):
+    detections = sv.Detections.from_yolov11(outputs)  # Updated to match YOLOv11
+    xyxy = detections.xyxy
+    confidence = detections.confidence
+    class_id = detections.class_id
+
+    boundingBoxes = BoundingBoxes()
+    boundingBoxes.header = data.header
+    boundingBoxes.image_header = data.header
+    boundingBoxes.bounding_boxes = []
+
+    for i in range(len(detections)):
+        boundingBox = BoundingBox()
+        boundingBox.xmin = int(xyxy[i][0])
+        boundingBox.ymin = int(xyxy[i][1])
+        boundingBox.xmax = int(xyxy[i][2])
+        boundingBox.ymax = int(xyxy[i][3])
+        boundingBox.probability = confidence[i]
+        boundingBox.Class = class_id[i]
+        boundingBoxes.bounding_boxes.append(boundingBox)
+
+    box_annotator = sv.BoxAnnotator()
+    annotated_frame = box_annotator.annotate(
+        scene=image.copy(),
+        detections=detections
+    )
+
+    detectionImage = Image()
+    detectionImage.header = data.header
+    detectionImage.encoding = "bgr8"
+    detectionImage.height = image.shape[0]
+    detectionImage.width = image.shape[1]
+    detectionImage.step = image.shape[1] * 3
+
+    detectionImage = cvBridge.cv2_to_imgmsg(annotated_frame, encoding="bgr8")
+
+    pub_object_detector.publish(len(detections))
+    pub_bounding_boxes.publish(boundingBoxes)
+    pub_detection_image.publish(detectionImage)
+
 def infer_with_local_model(data):
     # Define preprocessing (adjust to your model)
     image = cvBridge.imgmsg_to_cv2(data, "bgr8")
@@ -108,6 +148,9 @@ def infer_with_local_model(data):
         outputs = model(image)
     #output is list
     print (outputs)
+
+    #TODO
+    # Need to figure out how to get the output from the model
     # predicted = outputs.argmax(dim=1).item()
     
     process_result(data, image, outputs)
