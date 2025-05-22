@@ -153,7 +153,7 @@ def infer_with_local_model(data):
     # Need to figure out how to get the output from the model
     # predicted = outputs.argmax(dim=1).item()
     
-    process_result(data, image, outputs)
+    process_local_result(data, image, outputs)
 
 def listener():
     rospy.init_node('yolo_image_listener', anonymous=True)
