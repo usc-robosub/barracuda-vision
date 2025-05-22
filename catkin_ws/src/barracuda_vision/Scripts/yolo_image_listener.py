@@ -20,88 +20,42 @@ client = InferenceHTTPClient(
     # api_key="<YOUR API KEY>" # optional to access your private data and models
 )
 
-# class MyModel(nn.Module):
-#     def __init__(self):
-#         super(MyModel, self).__init__()
-#         # Define layers here
-
-#     def forward(self, x):
-#         # Define forward pass here
-
-def infer_with_roboflow(data):
+def infer(data, use_local_model):
     rospy.loginfo(rospy.get_caller_id() + " I heard an image")
-    # Process the data and publish the result
-    # Assuming data contains the image data
     image = cvBridge.imgmsg_to_cv2(data, "bgr8")
-    result = client.run_workflow(
-        workspace_name="roboflow-docs",
-        workflow_id="model-comparison",
-        images={
-            "image": image
-        },
-        parameters={
-            "model1": "yolov11n-640"
-        }
-    )
-    # Print the result
-    print(result[0]["model1_predictions"]["predictions"])
 
-    process_result(data, image, result)
-    
-def process_result(data, image, result):
-    predictions = result[0]["model1_predictions"]["predictions"]
-    detections = sv.Detections.from_inference(result[0]["model1_predictions"])
-    xyxy = detections.xyxy
-    # print(xyxy)
-    confidence = detections.confidence
-    class_id = detections.class_id
+    if use_local_model:
+        with torch.no_grad():
+            outputs = model(image)
+        print("model output", outputs)
+        print("model output type", type(outputs))
+        process_result(data, image, outputs[0], is_local=True)
+    else:
+        result = client.run_workflow(
+            workspace_name="roboflow-docs",
+            workflow_id="model-comparison",
+            images={
+                "image": image
+            },
+            parameters={
+                "model1": "yolov11n-640"
+            }
+        )
+        print(result[0]["model1_predictions"]["predictions"])
+        process_result(data, image, result, is_local=False)
 
-    boundingBoxes = BoundingBoxes()
-    boundingBoxes.header = data.header
-    boundingBoxes.image_header = data.header
-    boundingBoxes.bounding_boxes = []
-
-
-    for i in range(len(detections)):
-        boundingBox = BoundingBox()
-        boundingBox.xmin = int(xyxy[i][0])
-        boundingBox.ymin = int(xyxy[i][1])
-        boundingBox.xmax = int(xyxy[i][2])
-        boundingBox.ymax = int(xyxy[i][3])
-        boundingBox.probability = confidence[i]
-        boundingBox.Class = predictions[i]["class"]
-        boundingBoxes.bounding_boxes.append(boundingBox)
-
-    box_annotator = sv.BoxAnnotator()
-    annotated_frame = box_annotator.annotate(
-        scene=image.copy(),
-        detections=detections
-    )
-
-    detectionImage = Image()
-    detectionImage.header = data.header
-    detectionImage.header = data.header
-    detectionImage.encoding = "bgr8"
-    detectionImage.height = result[0]["model1_predictions"]['image']['height']
-    detectionImage.width = result[0]["model1_predictions"]['image']['width']
-    detectionImage.step = data.step
-
-    detectionImage = cvBridge.cv2_to_imgmsg(annotated_frame, encoding="bgr8")
-    
-    # print(type(result[0]["model_comparison_visualization"]))  
-    # detectionImage.data = base64.b64decode(result[0]["model_comparison_visualization"])
-    # detectionImage.data = result[0]["model_comparison_visualization"].encode('utf-8')
-    
-    # Publish the result
-    pub_object_detector.publish(len(result[0]["model1_predictions"]['predictions']))
-    pub_bounding_boxes.publish(boundingBoxes)
-    pub_detection_image.publish(detectionImage)
-
-def process_local_result(data, image, outputs):
-    detections = sv.Detections.from_ultralytics(outputs)  # Updated to use from_ultralytics
-    xyxy = detections.xyxy
-    confidence = detections.confidence
-    class_id = detections.class_id
+def process_result(data, image, result_or_outputs, is_local=False):
+    if is_local:
+        detections = sv.Detections.from_ultralytics(result_or_outputs)
+        xyxy = detections.xyxy
+        confidence = detections.confidence
+        class_id = detections.class_id
+    else:
+        predictions = result_or_outputs[0]["model1_predictions"]["predictions"]
+        detections = sv.Detections.from_inference(result_or_outputs[0]["model1_predictions"])
+        xyxy = detections.xyxy
+        confidence = detections.confidence
+        class_id = [pred["class"] for pred in predictions]
 
     boundingBoxes = BoundingBoxes()
     boundingBoxes.header = data.header
@@ -137,33 +91,16 @@ def process_local_result(data, image, outputs):
     pub_bounding_boxes.publish(boundingBoxes)
     pub_detection_image.publish(detectionImage)
 
-def infer_with_local_model(data):
-    # Define preprocessing (adjust to your model)
-    image = cvBridge.imgmsg_to_cv2(data, "bgr8")
-    # pil_image = Image.fromarray(image)
-    # tensor = preprocess(pil_image)
-    # tensor = tensor.unsqueeze(0)  # add batch dimension
-    with torch.no_grad():
-        # outputs = model(tensor)
-        outputs = model(image)
-    #output is list
-    print ("model output", outputs)
-    print("model output type", type(outputs))
-    # print("model output shape", outputs[0].shape)
-
-    #TODO
-    # Need to figure out how to get the output from the model
-    # predicted = outputs.argmax(dim=1).item()
-    
-    process_local_result(data, image, outputs[0])
-
 def listener():
     rospy.init_node('yolo_image_listener', anonymous=True)
-    rospy.Subscriber("yolo_input_image", Image, infer_with_local_model)
+    use_local_model = rospy.get_param('~use_local_model', True)  # Default to local model
+    rospy.Subscriber("yolo_input_image", Image, lambda data: infer(data, use_local_model))
+
     global pub_object_detector, pub_bounding_boxes, pub_detection_image
     pub_object_detector = rospy.Publisher('object_detector', Int8, queue_size=10)
     pub_bounding_boxes = rospy.Publisher('bounding_boxes', BoundingBoxes, queue_size=10)
     pub_detection_image = rospy.Publisher('detection_image', Image, queue_size=10)
+
     rospy.spin()
 
 if __name__ == '__main__':
