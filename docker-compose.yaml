@@ -10,6 +10,7 @@ services:
     volumes:
       - $HOME/.ssh:/root/.ssh
       - ${XAUTHORITY:-/tmp/.Xauthority}:/root/.Xauthority:ro
+      - ${MODEL_PATH:-/localmodels}:/opt/barracuda-vision/catkin_ws/src/barracuda_vision/localModels
     environment:
       - DISPLAY
       - XAUTHORITY=${XAUTHORITY:-/tmp/.Xauthority}
