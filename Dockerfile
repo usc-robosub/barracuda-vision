@@ -13,8 +13,10 @@ RUN sudo apt-get update \
 COPY requirements.txt .
 RUN sudo pip install --no-cache-dir -r requirements.txt
 
-COPY requirements_local.txt .
-RUN sudo pip install --no-cache-dir -r requirements_local.txt
+COPY requirements_new.txt .
+RUN sudo pip install --no-cache-dir -r requirements_new.txt
+
+RUN echo "source /opt/barracuda-vision/catkin_ws/devel/setup.bash" >> /root/.bashrc
 
 COPY . /opt/barracuda-vision
 WORKDIR /opt

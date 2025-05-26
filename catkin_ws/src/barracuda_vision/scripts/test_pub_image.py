@@ -13,7 +13,7 @@ def publish_image():
     while not rospy.is_shutdown():
         # Read an image using OpenCV
 
-        cv_image = cv2.imread('../images/shark.png')
+        cv_image = cv2.imread('/opt/barracuda-vision/catkin_ws/src/barracuda_vision/images/shark.png')
         if cv_image is None:
             rospy.logerr("Failed to read image")
             continue
