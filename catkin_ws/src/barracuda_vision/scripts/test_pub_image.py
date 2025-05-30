@@ -22,14 +22,12 @@ def publish_image():
         ros_image = bridge.cv2_to_imgmsg(cv_image, encoding="bgr8")
 
         # Publish the image
-        print("Publishing image")
+        rospy.loginfo("Publishing image")
         pub.publish(ros_image)
         rate.sleep()
-
 if __name__ == '__main__':
     try:
-        print("Publishing image main")
+        rospy.loginfo("Publishing image main")
         publish_image()
     except rospy.ROSInterruptException:
-        print("An error occurred.")
-        pass
+        rospy.logerr("An error occurred.")

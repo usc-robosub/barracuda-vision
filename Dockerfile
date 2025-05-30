@@ -1,7 +1,7 @@
 FROM ros:noetic-ros-base-focal
 
-RUN sudo apt-get update \
-    && sudo apt-get install -y --no-install-recommends git vim wget \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git vim wget \
     python3-pip \
     libopencv-dev \
     libx11-dev \
