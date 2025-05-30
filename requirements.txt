@@ -1,2 +1,4 @@
-inference-sdk
 numpy>=1.20
+torch
+torchvision
+ultralytics

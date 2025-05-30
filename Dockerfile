@@ -1,7 +1,7 @@
 FROM ros:noetic-ros-base-focal
 
-RUN sudo apt-get update \
-    && sudo apt-get install -y --no-install-recommends git vim wget \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git vim wget \
     python3-pip \
     libopencv-dev \
     libx11-dev \
@@ -12,6 +12,8 @@ RUN sudo apt-get update \
 
 COPY requirements.txt .
 RUN sudo pip install --no-cache-dir -r requirements.txt
+
+RUN echo "source /opt/barracuda-vision/catkin_ws/devel/setup.bash" >> /root/.bashrc
 
 COPY . /opt/barracuda-vision
 WORKDIR /opt

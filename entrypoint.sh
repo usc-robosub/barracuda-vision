@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
 source /opt/ros/noetic/setup.bash
 
 cd barracuda-vision/catkin_ws
