@@ -11,12 +11,39 @@ import supervision as sv
 import torch
 import os
 import sys
+import cv2
+
+def letterbox_image(image, size=640):
+    h, w = image.shape[:2]
+    scale = size / max(h, w)
+    new_w, new_h = int(w * scale), int(h * scale)
+    resized = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+    top = (size - new_h) // 2
+    bottom = size - new_h - top
+    left = (size - new_w) // 2
+    right = size - new_w - left
+    padded = cv2.copyMakeBorder(resized, top, bottom, left, right, cv2.BORDER_CONSTANT, value=0)
+    return padded
+
+def center_crop_image(image, size=640):
+    h, w = image.shape[:2]
+    min_dim = min(h, w, size)
+    # Calculate cropping coordinates for center crop
+    start_x = max((w - min_dim) // 2, 0)
+    start_y = max((h - min_dim) // 2, 0)
+    cropped = image[start_y:start_y+min_dim, start_x:start_x+min_dim]
+    # If crop is not exactly size, resize
+    if cropped.shape[0] != size or cropped.shape[1] != size:
+        cropped = cv2.resize(cropped, (size, size), interpolation=cv2.INTER_LINEAR)
+    return cropped
 
 def infer(data):
     """Run inference on incoming image data using the local model only."""
     image = cvBridge.imgmsg_to_cv2(data, "bgr8")
+    # image = letterbox_image(image, size=640)
+    # image = center_crop_image(image, size=640)
     with torch.no_grad():
-        outputs = model(image)
+        outputs = model(image, conf = 0.6, iou= 0.4, agnostic_nms=True, max_det=300)
     rospy.loginfo(f"Local model inference: {len(outputs[0])} detections")
     process_result(data, image, outputs[0])
 
@@ -61,7 +88,7 @@ def process_result(data, image, result_or_outputs):
 def listener():
     """Initialize ROS node and publishers, and subscribe to image topic."""
     rospy.init_node('yolo_image_listener', anonymous=True)
-    rospy.Subscriber("yolo_input_image", Image, infer)
+    rospy.Subscriber("/barracuda/right_camera/right_camera_image", Image, infer)
 
     global pub_object_detector, pub_bounding_boxes, pub_detection_image
     pub_object_detector = rospy.Publisher('object_detector', Int32, queue_size=10)
@@ -71,7 +98,7 @@ def listener():
     rospy.spin()
 
 if __name__ == '__main__':
-    # Find the localModels directory relative to this script
+    # Find the localModels directory relative to this script1.5708
     script_dir = os.path.dirname(os.path.abspath(__file__))
     models_dir = os.path.join(script_dir, '..', 'localModels')
 
