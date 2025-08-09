@@ -1,0 +1,17 @@
+<launch>
+    <!-- Launch YOLO image listener -->
+    <node name="barracuda_vision_listener" pkg="barracuda_vision" type="yolo_image_listener.py" output="screen"/>
+    
+    <!-- Launch pose estimator with remapped topics -->
+    <node name="pose_estimator" pkg="barracuda_vision" type="pose_estimator.py" output="screen">
+    </node>
+    
+    <!-- Example pose planner (optional) -->
+    <!-- <node name="pose_planner" pkg="barracuda_vision" type="example_pose_planner.py" output="screen" if="$(arg run_planner)"/> -->
+    
+    <!-- Arguments -->
+    <!-- <arg name="run_planner" default="false"/> -->
+    
+    <!-- Optional: Launch rviz for visualization -->
+    <!-- <node name="rviz" pkg="rviz" type="rviz" args="-d $(find barracuda_vision)/config/pose_estimation.rviz" /> -->
+</launch>

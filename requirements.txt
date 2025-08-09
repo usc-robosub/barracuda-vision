@@ -3,3 +3,5 @@ torch
 torchvision
 ultralytics
 supervision
+scipy
+filterpy

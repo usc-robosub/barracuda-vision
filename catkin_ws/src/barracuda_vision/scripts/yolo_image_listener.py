@@ -43,7 +43,7 @@ def infer(data):
     # image = letterbox_image(image, size=640)
     # image = center_crop_image(image, size=640)
     with torch.no_grad():
-        outputs = model(image, conf = 0.6, iou= 0.4, agnostic_nms=True, max_det=300)
+        outputs = model(image, conf = 0.3, iou= 0.4, agnostic_nms=True, max_det=300)
     rospy.loginfo(f"Local model inference: {len(outputs[0])} detections")
     process_result(data, image, outputs[0])
 
@@ -56,8 +56,10 @@ def process_result(data, image, result_or_outputs):
     class_id = detections.class_id
 
     boundingBoxes = BoundingBoxes()
+    # Use current time for bounding box message to avoid transform extrapolation issues
     boundingBoxes.header = data.header
-    boundingBoxes.image_header = data.header
+    boundingBoxes.header.stamp = rospy.Time.now()
+    boundingBoxes.image_header = data.header  # Keep original image header for reference
     boundingBoxes.bounding_boxes = []
 
     for i in range(len(detections)):
@@ -67,7 +69,11 @@ def process_result(data, image, result_or_outputs):
         boundingBox.xmax = int(xyxy[i][2])
         boundingBox.ymax = int(xyxy[i][3])
         boundingBox.probability = confidence[i]
-        boundingBox.Class = class_id[i]
+        # Convert class ID to class name if model has names, otherwise use string of ID
+        if hasattr(model, 'names') and class_id[i] in model.names:
+            boundingBox.Class = model.names[class_id[i]]
+        else:
+            boundingBox.Class = str(class_id[i])  # Convert numpy.int64 to string
         boundingBoxes.bounding_boxes.append(boundingBox)
 
     # Annotate and publish detection results
@@ -78,7 +84,9 @@ def process_result(data, image, result_or_outputs):
     )
 
     detectionImage = cvBridge.cv2_to_imgmsg(annotated_frame, encoding="bgr8")
+    # Use current time for detection image to match bounding box timestamp
     detectionImage.header = data.header
+    detectionImage.header.stamp = rospy.Time.now()
     
     pub_object_detector.publish(len(detections))
     pub_bounding_boxes.publish(boundingBoxes)

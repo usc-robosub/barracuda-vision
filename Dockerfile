@@ -7,6 +7,8 @@ RUN apt-get update \
     libx11-dev \
     ros-noetic-cv-bridge \
     ros-noetic-darknet-ros-msgs \
+    ros-noetic-tf2-ros \
+    ros-noetic-tf2-geometry-msgs \
     python3-opencv \
     && rm -rf /var/lib/apt/lists/*
 
