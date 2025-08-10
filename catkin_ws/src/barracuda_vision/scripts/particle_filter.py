@@ -8,8 +8,8 @@ from enum import Enum
 class TrackState(Enum):
     """States for track management"""
     CONFIRMED = "confirmed"  # Have recent hit
-    HOLD = "hold"           # Missed ≤ k frames
-    LOST = "lost"           # Missed > k frames or covariance too big
+    HOLD = "hold"           # Missed ≤ k frames, confidence decaying
+    LOST = "lost"           # Confidence dropped below threshold or covariance too big
 
 class ParticleFilter3D:
     """Optimized particle filter for 3D object tracking with hold-and-decay state machine
@@ -20,7 +20,8 @@ class ParticleFilter3D:
     - Reduced computational overhead through efficient array operations
     """
     def __init__(self, min_particles=20, max_particles=50, process_noise=0.1, measurement_noise=0.5, 
-                 max_hold_frames=10, survival_factor=0.97, max_covariance_threshold=2.0):
+                 max_hold_frames=10, survival_factor=0.97, max_covariance_threshold=2.0, 
+                 min_confidence_threshold=0.1):
         # Adaptive particle count parameters
         self.min_particles = min_particles  # Minimum particles (for HOLD state)
         self.max_particles = max_particles  # Maximum particles (for CONFIRMED state)
@@ -34,9 +35,10 @@ class ParticleFilter3D:
         # State machine parameters
         self.state = TrackState.LOST
         self.frames_since_update = 0
-        self.max_hold_frames = max_hold_frames
+        self.max_hold_frames = max_hold_frames  # Still used for transition to HOLD
         self.survival_factor = survival_factor
         self.max_covariance_threshold = max_covariance_threshold
+        self.min_confidence_threshold = min_confidence_threshold  # Confidence threshold for LOST
         
         # Vectorized particle storage: [N x 3] positions and [N] weights
         self.positions = np.zeros((self.current_num_particles, 3))
@@ -219,14 +221,18 @@ class ParticleFilter3D:
         
         self.frames_since_update += 1
         
-        # Update state based on frames since last update
-        if self.frames_since_update <= self.max_hold_frames:
-            if self.state == TrackState.CONFIRMED:
-                self.state = TrackState.HOLD
-        else:
-            self.state = TrackState.LOST
+        # Update state based on confidence decay, not just frame count
+        current_confidence = self.get_confidence()
+        
+        if self.state == TrackState.CONFIRMED:
+            # Transition to HOLD state when we start missing detections
+            self.state = TrackState.HOLD
+        elif self.state == TrackState.HOLD:
+            # Check if confidence has decayed too much to continue holding
+            if current_confidence < self.min_confidence_threshold:
+                self.state = TrackState.LOST
             
-        # Check if covariance is too large (track has diverged)
+        # Also check if covariance is too large (track has diverged)
         cov = self.get_covariance()
         if cov is not None:
             # Use trace of covariance matrix as a measure of uncertainty

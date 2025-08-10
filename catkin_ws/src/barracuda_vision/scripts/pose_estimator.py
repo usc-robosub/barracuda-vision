@@ -148,14 +148,14 @@ class PoseEstimator:
                 # Update particle filter for this object class (working in map frame)
                 class_id = bbox.Class
                 if class_id not in self.particle_filters:
-                    # Create new optimized particle filter with adaptive particle count
-                    # At 30fps, 10 frames = ~0.33 seconds of dropout tolerance
+                    # Create new optimized particle filter with decay-based loss detection
                     self.particle_filters[class_id] = ParticleFilter3D(
-                        min_particles=20,    # Fewer particles during HOLD for efficiency
-                        max_particles=50,    # Reduced from 100 for better performance
-                        max_hold_frames=10,
-                        survival_factor=0.97,
-                        max_covariance_threshold=2.0
+                        min_particles=5,    # Fewer particles during HOLD for efficiency
+                        max_particles=25,    # Reduced from 100 for better performance
+                        max_hold_frames=10,  # Still used for CONFIRMED->HOLD transition
+                        survival_factor=0.97,  # 97% survival per frame
+                        max_covariance_threshold=2.0,
+                        min_confidence_threshold=0.1  # Track is LOST when confidence drops below 10%
                     )
                 
                 pf = self.particle_filters[class_id]
@@ -277,7 +277,9 @@ class PoseEstimator:
                 if pf.is_lost():
                     # Mark for removal
                     classes_to_remove.append(class_id)
-                    rospy.loginfo(f"Track for {class_id} lost after {pf.get_frames_since_update()} frames")
+                    confidence_pct = int(pf.get_confidence() * 100)
+                    frames_missed = pf.get_frames_since_update()
+                    rospy.loginfo(f"Track for {class_id} lost due to low confidence ({confidence_pct}%) after {frames_missed} frames")
                 else:
                     # Track is in HOLD state, still publish estimated pose
                     estimated_position_map = pf.get_estimate()

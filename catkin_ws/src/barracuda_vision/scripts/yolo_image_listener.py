@@ -43,7 +43,7 @@ def infer(data):
     # image = letterbox_image(image, size=640)
     # image = center_crop_image(image, size=640)
     with torch.no_grad():
-        outputs = model(image, conf = 0.3, iou= 0.4, agnostic_nms=True, max_det=300)
+        outputs = model(image, conf = 0.6, iou= 0.4, agnostic_nms=True, max_det=300)
     rospy.loginfo(f"Local model inference: {len(outputs[0])} detections")
     process_result(data, image, outputs[0])
 
