@@ -56,7 +56,7 @@ class PoseEstimator:
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
         
         # Frame names
-        self.camera_frame = "barracuda/zed_right_camera_frame"  # or "base_camera" depending on your setup
+        self.camera_frame = "barracuda_zed_right_camera_frame"  # or "base_camera" depending on your setup
         self.map_frame = "map"
         # "barracuda/zed_right_camera_frame"
         
