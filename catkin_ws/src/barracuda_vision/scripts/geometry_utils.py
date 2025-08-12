@@ -42,6 +42,37 @@ class GeometryUtils:
         return float(np.median(valid_depths))
     
     @staticmethod
+    def find_closest_point_in_bbox(depth_image, xmin, ymin, xmax, ymax):
+        """Find the closest point (minimum depth) within a bounding box"""
+        if depth_image is None:
+            return None, None, None
+        
+        h, w = depth_image.shape
+        
+        # Convert to integers and ensure bounds
+        xmin_int = max(0, int(xmin))
+        ymin_int = max(0, int(ymin))
+        xmax_int = min(w, int(xmax))
+        ymax_int = min(h, int(ymax))
+        
+        # Check if bounding box is valid
+        if xmin_int >= xmax_int or ymin_int >= ymax_int:
+            return None, None, None
+        
+        # Extract depth values in bounding box
+        bbox_depth = depth_image[ymin_int:ymax_int, xmin_int:xmax_int]
+        valid_depths = bbox_depth[bbox_depth > 0]  # Remove invalid (zero) depths
+        
+        if len(valid_depths) == 0:
+            return None, None, None
+        
+        # Find minimum depth
+        min_depth = float(np.min(valid_depths))
+    
+        
+        return min_depth
+    
+    @staticmethod
     def distance_3d(p1, p2):
         """Calculate Euclidean distance between two 3D points"""
         return np.linalg.norm(np.array(p1) - np.array(p2))

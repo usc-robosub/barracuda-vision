@@ -31,16 +31,17 @@ class CameraModel:
     
     def project_to_3d(self, pixel_x, pixel_y, depth):
         """Project 2D pixel coordinates to 3D camera coordinates"""
-        y = -(pixel_x - self.cx) * depth / self.fx
-        z = -(pixel_y - self.cy) * depth / self.fy
-        x = depth
-        return np.array([x, y, z])
-    
-    def project_to_2d(self, x, y, z):
-        """Project 3D camera coordinates to 2D pixel coordinates"""
-        if z <= 0:
-            return None, None
+        # Convert pixel coordinates to normalized camera coordinates
+        x_norm = (pixel_x - self.cx) / self.fx
+        y_norm = (pixel_y - self.cy) / self.fy
         
-        pixel_x = (x * self.fx / z) + self.cx
-        pixel_y = (y * self.fy / z) + self.cy
-        return pixel_x, pixel_y
+        # Calculate the normalization factor for the depth distance
+        # depth is the actual distance from camera, so we need to scale by the magnitude
+        norm_factor = np.sqrt(1 + x_norm*x_norm + y_norm*y_norm)
+        
+        # Calculate 3D coordinates in camera frame
+        x = depth / norm_factor  # Forward distance (along camera's Z-axis)
+        y = -x_norm * depth / norm_factor  # Right direction (negative for correct orientation)
+        z = -y_norm * depth / norm_factor  # Down direction (negative for correct orientation)
+        
+        return np.array([x, y, z])

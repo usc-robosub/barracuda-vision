@@ -14,7 +14,7 @@ import tf2_ros
 import tf2_geometry_msgs
 
 # Import custom messages
-from barracuda_vision.msg import ObjectPose
+from barracuda_vision.msg import ObjectPose, ObjectPoseArray
 
 # Import our custom modules
 from particle_filter import ParticleFilter3D, TrackState
@@ -39,6 +39,9 @@ class PoseEstimator:
         # Single publisher for individual object poses (in camera frame)
         self.pose_pub = rospy.Publisher('/object_pose', ObjectPose, queue_size=10)
         
+        # Publisher for object pose array
+        self.pose_array_msg_pub = rospy.Publisher('/object_pose_array', ObjectPoseArray, queue_size=10)
+        
         # Publishers for RViz visualization (in map frame)
         self.pose_stamped_pub = rospy.Publisher('/object_poses_stamped', PoseStamped, queue_size=10)
         self.pose_array_pub = rospy.Publisher('/object_poses_array', PoseArray, queue_size=10)
@@ -56,7 +59,7 @@ class PoseEstimator:
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
         
         # Frame names
-        self.camera_frame = "barracuda_zed_right_camera_frame"  # or "base_camera" depending on your setup
+        self.camera_frame = "barracuda/zed_right_camera_frame"  # or "base_camera" depending on your setup
         self.map_frame = "map"
         # "barracuda/zed_right_camera_frame"
         
@@ -69,14 +72,20 @@ class PoseEstimator:
         self.depth_image = None
         self.last_depth_time = None
         
-        # Particle filters for different object classes
+        # Particle filters for individual object instances (key: object_id)
         self.particle_filters = {}
         
-        # Store all current poses for array publishing
+        # Store all current poses for array publishing (key: object_id)
         self.current_poses = {}
         
-        # Track which classes were seen in the current frame
-        self.classes_seen_this_frame = set()
+        # Track which object IDs were seen in the current frame
+        self.objects_seen_this_frame = set()
+        
+        # Counter for generating unique object IDs
+        self.next_object_id = 1
+        
+        # Store object metadata (object_id -> {class, last_position})
+        self.object_metadata = {}
         
         rospy.loginfo("Pose estimator initialized")
         
@@ -123,46 +132,103 @@ class PoseEstimator:
             # This assumes camera and map frames are aligned, which may not be true
             return position_3d_camera
     
+    def calculate_bbox_size(self, bbox):
+        """Calculate the diagonal size of a bounding box"""
+        width = bbox.xmax - bbox.xmin
+        height = bbox.ymax - bbox.ymin
+        return math.sqrt(width*width + height*height)
+    
+    def find_matching_object(self, bbox, position_3d_map):
+        """Find existing object that matches this detection or return None for new object"""
+        distance_threshold = 0.7  # 0.7 meters threshold for considering objects as different
+        
+        # Look for existing objects of the same class
+        candidates = []
+        for obj_id, metadata in self.object_metadata.items():
+            if metadata['class'] == bbox.Class and obj_id in self.particle_filters:
+                pf = self.particle_filters[obj_id]
+                if not pf.is_lost():
+                    estimated_pos = pf.get_estimate()
+                    if estimated_pos is not None:
+                        distance = np.linalg.norm(np.array(position_3d_map) - np.array(estimated_pos))
+                        candidates.append((obj_id, distance))
+        
+        # Find closest candidate within distance threshold
+        if candidates:
+            candidates.sort(key=lambda x: x[1])  # Sort by distance
+            closest_id, closest_distance = candidates[0]
+            
+            # If closest object is within 0.7m, it's likely the same object
+            if closest_distance <= distance_threshold:
+                return closest_id
+        
+        return None  # No match found, this is a new object
+    
+    def create_new_object(self, object_class, position_3d_map):
+        """Create a new object tracker and return its ID"""
+        object_id = self.next_object_id
+        self.next_object_id += 1
+        
+        # Create new particle filter
+        self.particle_filters[object_id] = ParticleFilter3D(
+            min_particles=5,    # Fewer particles during HOLD for efficiency
+            max_particles=25,    # Reduced from 100 for better performance
+            max_hold_frames=10,  # Still used for CONFIRMED->HOLD transition
+            survival_factor=0.97,  # 97% survival per frame
+            max_covariance_threshold=2.0,
+            min_confidence_threshold=0.1  # Track is LOST when confidence drops below 10%
+        )
+        
+        # Store metadata
+        self.object_metadata[object_id] = {
+            'class': object_class,
+            'last_position': position_3d_map
+        }
+        
+        rospy.loginfo(f"Created new object tracker: ID={object_id}, class={object_class}")
+        return object_id
+    
     def bbox_callback(self, msg):
-        """Process bounding boxes and estimate 3D poses"""
+        """Process bounding boxes and estimate 3D poses with multi-object tracking"""
         if self.depth_image is None:
             rospy.logwarn("Waiting for depth image")
             return
         
-        # Reset the set of classes seen this frame
-        self.classes_seen_this_frame.clear()
+        # Reset the set of object IDs seen this frame
+        self.objects_seen_this_frame.clear()
+        
+        # List to collect all valid object poses for the array message
+        valid_object_poses = []
         
         for bbox in msg.bounding_boxes:
-            # Track that we've seen this class in this frame
-            self.classes_seen_this_frame.add(bbox.Class)
-            
-            # Calculate 3D position from bounding box and depth (in camera frame)
+            # Calculate 3D position using bbox center for position and closest point for depth (in camera frame)
             position_3d_camera = self.calculate_3d_position(bbox)
-            print(f"Bounding box: {bbox.Class}, Position 3D (camera): {position_3d_camera}")
+            print(f"Bounding box: {bbox.Class}, Position 3D (camera, center+closest depth): {position_3d_camera}")
             
             if position_3d_camera is not None:
                 # Transform position to map frame for particle filter
                 position_3d_map = self.transform_pose_to_map(position_3d_camera, msg.header.stamp)
                 print(f"Position 3D (map): {position_3d_map}")
                 
-                # Update particle filter for this object class (working in map frame)
-                class_id = bbox.Class
-                if class_id not in self.particle_filters:
-                    # Create new optimized particle filter with decay-based loss detection
-                    self.particle_filters[class_id] = ParticleFilter3D(
-                        min_particles=5,    # Fewer particles during HOLD for efficiency
-                        max_particles=25,    # Reduced from 100 for better performance
-                        max_hold_frames=10,  # Still used for CONFIRMED->HOLD transition
-                        survival_factor=0.97,  # 97% survival per frame
-                        max_covariance_threshold=2.0,
-                        min_confidence_threshold=0.1  # Track is LOST when confidence drops below 10%
-                    )
+                # Find matching existing object or create new one
+                object_id = self.find_matching_object(bbox, position_3d_map)
                 
-                pf = self.particle_filters[class_id]
+                if object_id is None:
+                    # Create new object
+                    object_id = self.create_new_object(bbox.Class, position_3d_map)
+                
+                # Track that we've seen this object in this frame
+                self.objects_seen_this_frame.add(object_id)
+                
+                # Update particle filter for this object (working in map frame)
+                pf = self.particle_filters[object_id]
                 
                 # Update particle filter with new measurement in map frame
                 pf.predict()
                 pf.update(position_3d_map)
+                
+                # Update object metadata
+                self.object_metadata[object_id]['last_position'] = position_3d_map
                 
                 # Get filtered estimate in map frame
                 estimated_position_map = pf.get_estimate()
@@ -173,6 +239,7 @@ class PoseEstimator:
                     object_pose = ObjectPose()
                     object_pose.header = msg.header
                     object_pose.header.frame_id = self.camera_frame  # Pose is in camera frame
+                    object_pose.object_id = object_id
                     object_pose.object_class = bbox.Class
                     
                     # Set pose in camera frame (raw detection)
@@ -196,6 +263,9 @@ class PoseEstimator:
                     # Publish individual pose (in camera frame)
                     self.pose_pub.publish(object_pose)
                     
+                    # Add to array for batch publishing
+                    valid_object_poses.append(object_pose)
+                    
                     # Store filtered pose in map frame for visualization
                     map_pose = Pose()
                     map_pose.position.x = estimated_position_map[0]
@@ -206,7 +276,7 @@ class PoseEstimator:
                     map_pose.orientation.z = 0.0
                     map_pose.orientation.w = 1.0
                     
-                    self.current_poses[bbox.Class] = map_pose
+                    self.current_poses[object_id] = map_pose
                     
                     # Publish PoseStamped for RViz visualization (in map frame)
                     pose_stamped = PoseStamped()
@@ -220,40 +290,47 @@ class PoseEstimator:
                     confidence_pct = int(confidence * 100)
                     num_particles = pf.get_num_particles()
                     
-                    rospy.loginfo(f"Published pose for {bbox.Class}: camera=({position_3d_camera[0]:.2f}, {position_3d_camera[1]:.2f}, {position_3d_camera[2]:.2f}), map=({estimated_position_map[0]:.2f}, {estimated_position_map[1]:.2f}, {estimated_position_map[2]:.2f}), state={state_str}, confidence={confidence_pct}%, particles={num_particles}")
+                    rospy.loginfo(f"Published pose for {bbox.Class} (ID={object_id}): camera=({position_3d_camera[0]:.2f}, {position_3d_camera[1]:.2f}, {position_3d_camera[2]:.2f}), map=({estimated_position_map[0]:.2f}, {estimated_position_map[1]:.2f}, {estimated_position_map[2]:.2f}), state={state_str}, confidence={confidence_pct}%, particles={num_particles}")
                 else:
-                    rospy.logwarn(f"Particle filter for {bbox.Class} not properly initialized or returned invalid estimate")
+                    rospy.logwarn(f"Particle filter for {bbox.Class} (ID={object_id}) not properly initialized or returned invalid estimate")
         
         # Handle missed detections for existing tracks
         self.handle_missed_detections(msg.header)
+        
+        # Publish object pose array
+        if valid_object_poses:
+            pose_array_msg = ObjectPoseArray()
+            pose_array_msg.header = msg.header
+            pose_array_msg.objects = valid_object_poses
+            self.pose_array_msg_pub.publish(pose_array_msg)
         
         # Publish pose array and markers for all current objects (in map frame)
         self.publish_pose_array(msg.header)
         self.publish_markers(msg.header)
     
     def calculate_3d_position(self, bbox):
-        """Calculate 3D position from bounding box and depth data"""
+        """Calculate 3D position using bounding box center for screen position and closest point for depth"""
         try:
-            # Get bounding box center using geometry utils
+            # Get bounding box center for screen position (x, y)
             center_x, center_y = self.geometry_utils.bbox_center(
                 bbox.xmin, bbox.ymin, 
                 bbox.xmax - bbox.xmin, 
                 bbox.ymax - bbox.ymin
             )
             
-            # Calculate depth at the center point
-            depth = self.geometry_utils.calculate_depth_at_point(
-                self.depth_image, center_x, center_y, window_size=5
+            # Find the closest point (minimum depth) within the bounding box for depth
+            _, _, depth = self.geometry_utils.find_closest_point_in_bbox(
+                self.depth_image, bbox.xmin, bbox.ymin, bbox.xmax, bbox.ymax
             )
             
             if depth is None:
-                rospy.logwarn("No valid depth found at bounding box center")
+                rospy.logwarn("No valid depth found in bounding box")
                 return None
             
             # Convert mm to meters if needed
             depth_meters = depth / 1000.0 if depth > 10 else depth
             
-            # Convert to 3D coordinates using camera model
+            # Convert to 3D coordinates using camera model with center position and closest depth
             position_3d = self.camera_model.project_to_3d(
                 center_x, center_y, depth_meters
             )
@@ -266,20 +343,21 @@ class PoseEstimator:
     
     def handle_missed_detections(self, header):
         """Handle tracks that didn't receive measurements this frame"""
-        classes_to_remove = []
+        objects_to_remove = []
         
-        for class_id, pf in self.particle_filters.items():
-            if class_id not in self.classes_seen_this_frame:
+        for object_id, pf in self.particle_filters.items():
+            if object_id not in self.objects_seen_this_frame:
                 # This track didn't get a measurement this frame
                 pf.handle_missed_detection()
                 pf.predict()  # Still predict for held tracks
                 
                 if pf.is_lost():
                     # Mark for removal
-                    classes_to_remove.append(class_id)
+                    objects_to_remove.append(object_id)
                     confidence_pct = int(pf.get_confidence() * 100)
                     frames_missed = pf.get_frames_since_update()
-                    rospy.loginfo(f"Track for {class_id} lost due to low confidence ({confidence_pct}%) after {frames_missed} frames")
+                    object_class = self.object_metadata[object_id]['class']
+                    rospy.loginfo(f"Track for {object_class} (ID={object_id}) lost due to low confidence ({confidence_pct}%) after {frames_missed} frames")
                 else:
                     # Track is in HOLD state, still publish estimated pose
                     estimated_position_map = pf.get_estimate()
@@ -294,7 +372,7 @@ class PoseEstimator:
                         map_pose.orientation.z = 0.0
                         map_pose.orientation.w = 1.0
                         
-                        self.current_poses[class_id] = map_pose
+                        self.current_poses[object_id] = map_pose
                         
                         # Publish PoseStamped for RViz visualization (in map frame)
                         pose_stamped = PoseStamped()
@@ -307,14 +385,17 @@ class PoseEstimator:
                         frames_since = pf.get_frames_since_update()
                         confidence_pct = int(pf.get_confidence() * 100)
                         num_particles = pf.get_num_particles()
+                        object_class = self.object_metadata[object_id]['class']
                         
-                        rospy.loginfo(f"Holding track for {class_id}: map=({estimated_position_map[0]:.2f}, {estimated_position_map[1]:.2f}, {estimated_position_map[2]:.2f}), state={state_str}, frames_missed={frames_since}, confidence={confidence_pct}%, particles={num_particles}")
+                        rospy.loginfo(f"Holding track for {object_class} (ID={object_id}): map=({estimated_position_map[0]:.2f}, {estimated_position_map[1]:.2f}, {estimated_position_map[2]:.2f}), state={state_str}, frames_missed={frames_since}, confidence={confidence_pct}%, particles={num_particles}")
         
         # Remove lost tracks
-        for class_id in classes_to_remove:
-            del self.particle_filters[class_id]
-            if class_id in self.current_poses:
-                del self.current_poses[class_id]
+        for object_id in objects_to_remove:
+            del self.particle_filters[object_id]
+            if object_id in self.current_poses:
+                del self.current_poses[object_id]
+            if object_id in self.object_metadata:
+                del self.object_metadata[object_id]
     
     def publish_pose_array(self, header):
         """Publish all current poses as a PoseArray for RViz visualization (in map frame)"""
@@ -329,18 +410,19 @@ class PoseEstimator:
         """Publish markers for each detected object for RViz visualization (in map frame)"""
         marker_array = MarkerArray()
         
-        for i, (object_class, pose) in enumerate(self.current_poses.items()):
-            # Get particle filter info for this class
-            pf = self.particle_filters.get(object_class)
+        for i, (object_id, pose) in enumerate(self.current_poses.items()):
+            # Get particle filter info for this object
+            pf = self.particle_filters.get(object_id)
             confidence = pf.get_confidence() if pf else 1.0
             state = pf.get_state() if pf else None
+            object_class = self.object_metadata[object_id]['class'] if object_id in self.object_metadata else "unknown"
             
             # Create a marker for each object
             marker = Marker()
             marker.header = header
             marker.header.frame_id = self.map_frame  # Markers are in map frame
             marker.ns = "object_poses"
-            marker.id = i
+            marker.id = object_id  # Use object_id as marker ID
             marker.type = Marker.SPHERE
             marker.action = Marker.ADD
             
@@ -368,7 +450,7 @@ class PoseEstimator:
             text_marker.header = header
             text_marker.header.frame_id = self.map_frame  # Text markers are in map frame
             text_marker.ns = "object_labels"
-            text_marker.id = i + 1000  # Offset to avoid ID conflicts
+            text_marker.id = object_id + 1000  # Offset to avoid ID conflicts with sphere markers
             text_marker.type = Marker.TEXT_VIEW_FACING
             text_marker.action = Marker.ADD
             
@@ -376,10 +458,10 @@ class PoseEstimator:
             text_marker.pose = pose
             text_marker.pose.position.z += 0.3
             
-            # Set text with state and confidence info
+            # Set text with state, confidence info, and object ID
             state_str = state.value.upper() if state else "UNKNOWN"
             confidence_pct = int(confidence * 100)
-            text_marker.text = f"{object_class}\n{state_str} ({confidence_pct}%)"
+            text_marker.text = f"{object_class} (ID:{object_id})\n{state_str} ({confidence_pct}%)"
             
             # Set scale (text size)
             text_marker.scale.z = 0.1
