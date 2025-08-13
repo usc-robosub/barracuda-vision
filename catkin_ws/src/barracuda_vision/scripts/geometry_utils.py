@@ -45,7 +45,7 @@ class GeometryUtils:
     def find_closest_point_in_bbox(depth_image, xmin, ymin, xmax, ymax):
         """Find the closest point (minimum depth) within a bounding box"""
         if depth_image is None:
-            return None, None, None
+            return None
         
         h, w = depth_image.shape
         
@@ -57,18 +57,20 @@ class GeometryUtils:
         
         # Check if bounding box is valid
         if xmin_int >= xmax_int or ymin_int >= ymax_int:
-            return None, None, None
+            return None
         
         # Extract depth values in bounding box
         bbox_depth = depth_image[ymin_int:ymax_int, xmin_int:xmax_int]
-        valid_depths = bbox_depth[bbox_depth > 0]  # Remove invalid (zero) depths
+        
+        # Flatten the array and remove invalid (zero) depths
+        flat_depths = bbox_depth.flatten()
+        valid_depths = flat_depths[flat_depths > 0]
         
         if len(valid_depths) == 0:
-            return None, None, None
+            return None
         
         # Find minimum depth
         min_depth = float(np.min(valid_depths))
-    
         
         return min_depth
     

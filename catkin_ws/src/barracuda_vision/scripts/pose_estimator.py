@@ -59,7 +59,7 @@ class PoseEstimator:
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
         
         # Frame names
-        self.camera_frame = "barracuda/zed_right_camera_frame"  # or "base_camera" depending on your setup
+        self.camera_frame = "barracuda/zedm_right_camera_frame"  # or "base_camera" depending on your setup
         self.map_frame = "map"
         # "barracuda/zed_right_camera_frame"
         
@@ -319,7 +319,7 @@ class PoseEstimator:
             )
             
             # Find the closest point (minimum depth) within the bounding box for depth
-            _, _, depth = self.geometry_utils.find_closest_point_in_bbox(
+            depth = self.geometry_utils.find_closest_point_in_bbox(
                 self.depth_image, bbox.xmin, bbox.ymin, bbox.xmax, bbox.ymax
             )
             

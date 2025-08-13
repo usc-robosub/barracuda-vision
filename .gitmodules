@@ -1,0 +1,3 @@
+[submodule "catkin_ws/src/barracuda_msg"]
+	path = catkin_ws/src/barracuda_msg
+	url = git@github.com:usc-robosub/barracuda_msgs.git
